@@ -40,3 +40,14 @@ Run the following command to build and start the API locally at [http://localhos
 go run main.go
 ```
 
+### 3. Access Weather Data 🌍
+
+To access weather data for a specific city, make a GET request to:
+
+http://localhost:8080/weather/{city_name}
+
+
+Replace `{city_name}` with the name of the city you want weather data for. For example:
+
+
+
