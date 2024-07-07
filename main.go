@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/rs/cors"
 )
 
 type apiConfigData struct {
@@ -14,8 +16,17 @@ type apiConfigData struct {
 }
 
 type weatherData struct {
-	Name string   `json:"name"`
-	Main mainData `json:"main"`
+	Name    string   `json:"name"`
+	Main    mainData `json:"main"`
+	Weather []struct {
+		Main        string `json:"main"`
+		Description string `json:"description"`
+		Icon        string `json:"icon"`
+	} `json:"weather"`
+	Wind struct {
+		Speed float64 `json:"speed"`
+		Deg   float64 `json:"deg"`
+	} `json:"wind"`
 }
 
 type mainData struct {
@@ -45,7 +56,7 @@ func loadApiConfig(filename string) (apiConfigData, error) {
 }
 
 func hello(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("hello from go!  \n"))
+	w.Write([]byte("hello from go!\n"))
 }
 
 func query(city string) (weatherData, error) {
@@ -86,18 +97,37 @@ func query(city string) (weatherData, error) {
 }
 
 func main() {
-	http.HandleFunc("/hello", hello)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/hello", hello)
 
-	http.HandleFunc("/weather/", func(w http.ResponseWriter, r *http.Request) {
+	// Enable CORS
+	c := cors.Default()
+	handler := c.Handler(mux)
+
+	mux.HandleFunc("/weather/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
 		city := strings.SplitN(r.URL.Path, "/", 3)[2]
+		if city == "" {
+			http.Error(w, "City not specified", http.StatusBadRequest)
+			return
+		}
+
 		data, err := query(city)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		json.NewEncoder(w).Encode(data)
+
+		if err := json.NewEncoder(w).Encode(data); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	})
 
-	http.ListenAndServe(":8080", nil)
+	port := "8080"
+	fmt.Printf("Starting server on port %s...\n", port)
+	if err := http.ListenAndServe(":"+port, handler); err != nil {
+		fmt.Printf("Error starting server: %v\n", err)
+	}
 }
